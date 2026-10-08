@@ -9,10 +9,11 @@ import {
 } from '../services/auth.service.js';
 
 const COOKIE_NAME = 'jobmatch_session';
+
 const cookieOptions = {
   httpOnly: true,
-  secure: env.nodeEnv === 'production',
-  sameSite: 'strict',
+  secure: env.isProduction,
+  sameSite: env.isProduction ? 'none' : 'strict',
   path: '/api',
 };
 
@@ -26,8 +27,13 @@ function setSessionCookie(res, token) {
 export async function candidateRegister(req, res, next) {
   try {
     const result = await registerCandidate(req.validatedBody);
+
     setSessionCookie(res, result.token);
-    res.status(201).json({ user: result.user, profileId: result.profileId });
+
+    res.status(201).json({
+      user: result.user,
+      profileId: result.profileId,
+    });
   } catch (error) {
     next(error);
   }
@@ -36,8 +42,13 @@ export async function candidateRegister(req, res, next) {
 export async function employerRegister(req, res, next) {
   try {
     const result = await registerEmployer(req.validatedBody);
+
     setSessionCookie(res, result.token);
-    res.status(201).json({ user: result.user, profileId: result.profileId });
+
+    res.status(201).json({
+      user: result.user,
+      profileId: result.profileId,
+    });
   } catch (error) {
     next(error);
   }
@@ -46,9 +57,16 @@ export async function employerRegister(req, res, next) {
 function roleLogin(role) {
   return async (req, res, next) => {
     try {
-      const result = await login({ ...req.validatedBody, expectedRole: role });
+      const result = await login({
+        ...req.validatedBody,
+        expectedRole: role,
+      });
+
       setSessionCookie(res, result.token);
-      res.status(200).json({ user: result.user });
+
+      res.status(200).json({
+        user: result.user,
+      });
     } catch (error) {
       next(error);
     }
@@ -61,19 +79,33 @@ export const adminLogin = roleLogin('admin');
 
 export function logout(req, res) {
   disconnectUserSockets(req.auth.id);
+
   res.clearCookie(COOKIE_NAME, cookieOptions);
-  res.status(200).json({ message: 'Logged out.' });
+
+  res.status(200).json({
+    message: 'Logged out.',
+  });
 }
 
 export async function currentUser(req, res, next) {
   try {
     const user = await getAuthenticatedUser(req.auth.id);
+
     if (!user) {
       res.clearCookie(COOKIE_NAME, cookieOptions);
-      res.status(401).json({ error: { message: 'Authentication required.' } });
+
+      res.status(401).json({
+        error: {
+          message: 'Authentication required.',
+        },
+      });
+
       return;
     }
-    res.status(200).json({ user });
+
+    res.status(200).json({
+      user,
+    });
   } catch (error) {
     next(error);
   }
