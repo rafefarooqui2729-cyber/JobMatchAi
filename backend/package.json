@@ -1,0 +1,43 @@
+{
+  "name": "@jobmatch-ai/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "check": "node --check src/server.js",
+    "admin:create": "node scripts/create-admin.js",
+    "db:test": "node scripts/test-database.js",
+    "test:auth": "node scripts/test-auth.js",
+    "test:candidate-profile": "node scripts/test-candidate-profile.js",
+    "test:employer": "node scripts/test-employer.js",
+    "test:matching": "node --test scripts/test-job-matching.js",
+    "test:resume": "node --test scripts/test-resume.js",
+    "test:job-discovery": "node scripts/test-job-discovery.js",
+    "test:recommendations": "node scripts/test-recommendations.js",
+    "test:all": "node scripts/run-tests.js"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "multer": "^2.0.2",
+    "pdfjs-dist": "^4.10.38",
+    "socket.io": "^4.8.1",
+    "yauzl": "^3.3.1"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^10.2.3",
+    "yazl": "^3.3.1"
+  }
+}
