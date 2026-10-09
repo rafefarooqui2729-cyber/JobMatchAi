@@ -1,9 +1,14 @@
+
 import { randomUUID } from 'node:crypto';
+import mongoose from 'mongoose';
 import Application from '../models/application.model.js';
 import CandidateProfile from '../models/candidate-profile.model.js';
 import Job from '../models/job.model.js';
 import SavedJob from '../models/saved-job.model.js';
-import { calculateMatch, normalizeSkillName } from './job-matching.service.js';
+import {
+  calculateMatch,
+  normalizeSkillName,
+} from './job-matching.service.js';
 import { emitToUser } from '../sockets/index.js';
 import { SOCKET_EVENTS } from '../sockets/events.js';
 import { createAndEmitNotification } from './notification.service.js';
@@ -55,7 +60,8 @@ const RECOMMENDATION_JOB_FIELDS = [
   'externalExpiresAt',
 ];
 
-const RECOMMENDATION_JOB_SELECT = RECOMMENDATION_JOB_FIELDS.join(' ');
+const RECOMMENDATION_JOB_SELECT =
+  RECOMMENDATION_JOB_FIELDS.join(' ');
 
 function missingCandidate() {
   const error = new Error('Candidate profile was not found.');
@@ -91,19 +97,15 @@ function jobSnapshot(job) {
 
   record.requiredSkills = (record.requiredSkills ?? [])
     .filter(Boolean)
-    .map((skill) => (
-      typeof skill === 'string'
-        ? skill
-        : skill.name
-    ));
+    .map((skill) =>
+      typeof skill === 'string' ? skill : skill.name,
+    );
 
   record.preferredSkills = (record.preferredSkills ?? [])
     .filter(Boolean)
-    .map((skill) => (
-      typeof skill === 'string'
-        ? skill
-        : skill.name
-    ));
+    .map((skill) =>
+      typeof skill === 'string' ? skill : skill.name,
+    );
 
   return record;
 }
@@ -121,8 +123,8 @@ function titlePreferenceScore(candidate, job) {
     if (title === preferred) return 2;
 
     if (
-      title.includes(preferred)
-      || preferred.includes(title)
+      title.includes(preferred) ||
+      preferred.includes(title)
     ) {
       return Math.max(best, 1);
     }
@@ -132,31 +134,26 @@ function titlePreferenceScore(candidate, job) {
 }
 
 function compareRecommendations(left, right) {
-  return right.overallScore - left.overallScore
-    || right.matchedRequiredCount - left.matchedRequiredCount
-    || right.titlePreference - left.titlePreference
-    || new Date(
-      right.job.publishedAt
-      ?? right.job.createdAt
-      ?? 0,
-    ).getTime()
-      - new Date(
-        left.job.publishedAt
-        ?? left.job.createdAt
-        ?? 0,
-      ).getTime()
-    || String(right.job._id).localeCompare(String(left.job._id));
+  return (
+    right.overallScore - left.overallScore ||
+    right.matchedRequiredCount - left.matchedRequiredCount ||
+    right.titlePreference - left.titlePreference ||
+    new Date(
+      right.job.publishedAt ?? right.job.createdAt ?? 0,
+    ).getTime() -
+      new Date(
+        left.job.publishedAt ?? left.job.createdAt ?? 0,
+      ).getTime() ||
+    String(right.job._id).localeCompare(String(left.job._id))
+  );
 }
 
 function addTopRecommendation(top, recommendation, limit) {
   let index = 0;
 
   while (
-    index < top.length
-    && compareRecommendations(
-      top[index],
-      recommendation,
-    ) <= 0
+    index < top.length &&
+    compareRecommendations(top[index], recommendation) <= 0
   ) {
     index += 1;
   }
@@ -185,15 +182,11 @@ function matchedRequiredCount(candidate, job, match) {
     match.matchedSkills.map(normalizeSkillName),
   );
 
-  return (job.requiredSkills ?? [])
-    .filter((skill) => (
-      matched.has(
-        normalizeSkillName(
-          skill?.name ?? skill,
-        ),
-      )
-    ))
-    .length;
+  return (job.requiredSkills ?? []).filter((skill) =>
+    matched.has(
+      normalizeSkillName(skill?.name ?? skill),
+    ),
+  ).length;
 }
 
 function pagination(limit, total) {
@@ -204,13 +197,8 @@ function pagination(limit, total) {
   };
 }
 
-async function includeCandidateActions(
-  candidateId,
-  recommendations,
-) {
-  const jobIds = recommendations.map(
-    ({ job }) => job._id,
-  );
+async function includeCandidateActions(candidateId, recommendations) {
+  const jobIds = recommendations.map(({ job }) => job._id);
 
   if (!jobIds.length) {
     return recommendations;
@@ -243,12 +231,8 @@ async function includeCandidateActions(
 
   return recommendations.map((recommendation) => ({
     ...recommendation,
-    isSaved: savedIds.has(
-      String(recommendation.job._id),
-    ),
-    hasApplied: appliedIds.has(
-      String(recommendation.job._id),
-    ),
+    isSaved: savedIds.has(String(recommendation.job._id)),
+    hasApplied: appliedIds.has(String(recommendation.job._id)),
   }));
 }
 
@@ -262,6 +246,23 @@ export async function getRecommendations(
   );
 
   const candidate = await currentCandidate(userId);
+
+  // TEMPORARY DIAGNOSTICS: log counts and collection metadata only.
+  // Never log the MongoDB URI, credentials, or candidate information.
+  const [totalJobs, publishedJobs, activeJobs] =
+    await Promise.all([
+      Job.countDocuments({}),
+      Job.countDocuments({ status: 'published' }),
+      Job.countDocuments(activeJobFilter()),
+    ]);
+
+  console.log('[Recommendation diagnostics]', {
+    database: mongoose.connection.name,
+    collection: Job.collection.name,
+    totalJobs,
+    publishedJobs,
+    activeJobs,
+  });
 
   const query = Job.find(activeJobFilter())
     .select(RECOMMENDATION_JOB_SELECT)
@@ -281,10 +282,7 @@ export async function getRecommendations(
     for (const job of populatedJobs) {
       eligibleCount += 1;
 
-      const match = calculateMatch(
-        candidate,
-        job,
-      );
+      const match = calculateMatch(candidate, job);
 
       addTopRecommendation(
         top,
@@ -292,16 +290,9 @@ export async function getRecommendations(
           job: jobSnapshot(job),
           ...match,
           matchedRequiredCount:
-            matchedRequiredCount(
-              candidate,
-              job,
-              match,
-            ),
+            matchedRequiredCount(candidate, job, match),
           titlePreference:
-            titlePreferenceScore(
-              candidate,
-              job,
-            ),
+            titlePreferenceScore(candidate, job),
         },
         limit,
       );
@@ -330,17 +321,11 @@ export async function getRecommendations(
   );
 
   return {
-    recommendations:
-      await includeCandidateActions(
-        candidate._id,
-        ranked,
-      ),
-
-    pagination: pagination(
-      limit,
-      eligibleCount,
+    recommendations: await includeCandidateActions(
+      candidate._id,
+      ranked,
     ),
-
+    pagination: pagination(limit, eligibleCount),
     generatedAt: new Date(),
   };
 }
@@ -366,9 +351,7 @@ export async function emitUpdatedRecommendations(
   return result;
 }
 
-export async function notifyCandidatesOfPublishedJob(
-  jobId,
-) {
+export async function notifyCandidatesOfPublishedJob(jobId) {
   const job = await Job.findOne({
     _id: jobId,
     ...activeJobFilter(),
@@ -391,40 +374,32 @@ export async function notifyCandidatesOfPublishedJob(
       records.map(async ({ user }) => {
         const result = await getRecommendations(user);
 
-        const recommendation =
-          result.recommendations.find(
-            ({ job: item }) =>
-              String(item._id) === String(job._id),
-          );
+        const recommendation = result.recommendations.find(
+          ({ job: item }) => String(item._id) === String(job._id),
+        );
 
         if (!recommendation) return;
 
         const companyName =
-          job.company?.name
-          ?? job.companyName
-          ?? 'a company';
+          job.company?.name ?? job.companyName ?? 'a company';
 
         await createAndEmitNotification(user, {
           type: 'job-match',
           title: 'A new role matches your profile',
           message:
-            `${job.title} at ${companyName} `
-            + 'has been added to your recommendations.',
+            `${job.title} at ${companyName} ` +
+            'has been added to your recommendations.',
           resource: {
             type: 'job',
             id: job._id,
           },
         });
 
-        emitToUser(
-          user,
-          SOCKET_EVENTS.JOB_MATCHED,
-          {
-            eventId: randomUUID(),
-            recommendation,
-            generatedAt: result.generatedAt,
-          },
-        );
+        emitToUser(user, SOCKET_EVENTS.JOB_MATCHED, {
+          eventId: randomUUID(),
+          recommendation,
+          generatedAt: result.generatedAt,
+        });
 
         emitToUser(
           user,
@@ -433,8 +408,7 @@ export async function notifyCandidatesOfPublishedJob(
             eventId: randomUUID(),
             trigger: 'new-job',
             generatedAt: result.generatedAt,
-            recommendations:
-              result.recommendations,
+            recommendations: result.recommendations,
             total: result.pagination.total,
           },
         );
@@ -458,30 +432,22 @@ export async function notifyCandidatesOfPublishedJob(
 
 let recommendationJobQueue = Promise.resolve();
 
-export function schedulePublishedJobRecommendations(
-  jobId,
-) {
-  recommendationJobQueue =
-    recommendationJobQueue
-      .then(() =>
-        notifyCandidatesOfPublishedJob(jobId),
-      )
-      .catch((error) => {
-        console.error(
-          'Published-job recommendation processing failed.',
-          {
-            jobId: String(jobId),
-            name: error.name,
-            message: error.message,
-          },
-        );
-      });
+export function schedulePublishedJobRecommendations(jobId) {
+  recommendationJobQueue = recommendationJobQueue
+    .then(() => notifyCandidatesOfPublishedJob(jobId))
+    .catch((error) => {
+      console.error(
+        'Published-job recommendation processing failed.',
+        {
+          jobId: String(jobId),
+          name: error.name,
+          message: error.message,
+        },
+      );
+    });
 }
 
-export async function getJobMatchDetails(
-  userId,
-  jobId,
-) {
+export async function getJobMatchDetails(userId, jobId) {
   const candidate = await currentCandidate(userId);
 
   const job = await Job.findOne({
@@ -494,10 +460,7 @@ export async function getJobMatchDetails(
 
   if (!job) return null;
 
-  const match = calculateMatch(
-    candidate,
-    job,
-  );
+  const match = calculateMatch(candidate, job);
 
   const recommendation = {
     job: jobSnapshot(job),
@@ -524,10 +487,7 @@ export async function getJobMatchDetails(
   };
 }
 
-export async function saveJobForCandidate(
-  userId,
-  jobId,
-) {
+export async function saveJobForCandidate(userId, jobId) {
   const candidate = await currentCandidate(userId);
 
   const job = await Job.exists({
@@ -548,9 +508,7 @@ export async function saveJobForCandidate(
     }
   }
 
-  return {
-    saved: true,
-  };
+  return { saved: true };
 }
 
 export async function listSavedJobsForCandidate(
@@ -558,17 +516,11 @@ export async function listSavedJobsForCandidate(
   { page = 1, limit = 20 } = {},
 ) {
   const candidate = await currentCandidate(userId);
-
-  const filter = {
-    candidate: candidate._id,
-  };
+  const filter = { candidate: candidate._id };
 
   const [records, total] = await Promise.all([
     SavedJob.find(filter)
-      .sort({
-        createdAt: -1,
-        _id: -1,
-      })
+      .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .populate({
@@ -600,41 +552,29 @@ export async function listSavedJobsForCandidate(
         job: jobSnapshot(job),
         savedAt: createdAt,
         isActive:
-          job.status === 'published'
-          && (
-            !job.applicationDeadline
-            || new Date(job.applicationDeadline) > new Date()
-          )
-          && (
-            !job.expiresAt
-            || new Date(job.expiresAt) > new Date()
-          ),
+          job.status === 'published' &&
+          (!job.applicationDeadline ||
+            new Date(job.applicationDeadline) > new Date()) &&
+          (!job.expiresAt ||
+            new Date(job.expiresAt) > new Date()),
       })),
 
     pagination: {
       page,
       limit,
       total,
-      totalPages: Math.max(
-        1,
-        Math.ceil(total / limit),
-      ),
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     },
   };
 }
 
-export async function listApplicationsForCandidate(
-  userId,
-) {
+export async function listApplicationsForCandidate(userId) {
   const candidate = await currentCandidate(userId);
 
   const applications = await Application.find({
     candidate: candidate._id,
   })
-    .sort({
-      createdAt: -1,
-      _id: -1,
-    })
+    .sort({ createdAt: -1, _id: -1 })
     .populate({
       path: 'job',
       populate: [
@@ -659,65 +599,51 @@ export async function listApplicationsForCandidate(
     .map((application) => ({
       id: String(application._id),
       status: application.status,
-      statusUpdatedAt:
-        application.statusUpdatedAt,
-      statusHistory:
-        (application.statusHistory ?? []).map(
-          ({ status, changedAt }) => ({
-            status,
-            changedAt,
-          }),
-        ),
+      statusUpdatedAt: application.statusUpdatedAt,
+      statusHistory: (application.statusHistory ?? []).map(
+        ({ status, changedAt }) => ({ status, changedAt }),
+      ),
       matchScore: application.matchScore,
       createdAt: application.createdAt,
       job: jobSnapshot(application.job),
     }));
 }
 
-export async function getCandidateApplication(
-  userId,
-  applicationId,
-) {
+export async function getCandidateApplication(userId, applicationId) {
   const candidate = await currentCandidate(userId);
 
-  const application =
-    await Application.findOne({
-      _id: applicationId,
-      candidate: candidate._id,
+  const application = await Application.findOne({
+    _id: applicationId,
+    candidate: candidate._id,
+  })
+    .populate({
+      path: 'job',
+      populate: [
+        {
+          path: 'company',
+          select: 'name slug logoUrl industry',
+        },
+        {
+          path: 'requiredSkills',
+          select: 'name',
+        },
+        {
+          path: 'preferredSkills',
+          select: 'name',
+        },
+      ],
     })
-      .populate({
-        path: 'job',
-        populate: [
-          {
-            path: 'company',
-            select: 'name slug logoUrl industry',
-          },
-          {
-            path: 'requiredSkills',
-            select: 'name',
-          },
-          {
-            path: 'preferredSkills',
-            select: 'name',
-          },
-        ],
-      })
-      .lean();
+    .lean();
 
   if (!application?.job) return null;
 
   return {
     id: String(application._id),
     status: application.status,
-    statusUpdatedAt:
-      application.statusUpdatedAt,
-    statusHistory:
-      (application.statusHistory ?? []).map(
-        ({ status, changedAt }) => ({
-          status,
-          changedAt,
-        }),
-      ),
+    statusUpdatedAt: application.statusUpdatedAt,
+    statusHistory: (application.statusHistory ?? []).map(
+      ({ status, changedAt }) => ({ status, changedAt }),
+    ),
     matchScore: application.matchScore,
     createdAt: application.createdAt,
     job: jobSnapshot(application.job),
@@ -725,10 +651,7 @@ export async function getCandidateApplication(
   };
 }
 
-export async function unsaveJobForCandidate(
-  userId,
-  jobId,
-) {
+export async function unsaveJobForCandidate(userId, jobId) {
   const candidate = await currentCandidate(userId);
 
   await SavedJob.deleteOne({
@@ -736,15 +659,10 @@ export async function unsaveJobForCandidate(
     job: jobId,
   });
 
-  return {
-    saved: false,
-  };
+  return { saved: false };
 }
 
-export async function applyForJob(
-  userId,
-  jobId,
-) {
+export async function applyForJob(userId, jobId) {
   const candidate = await currentCandidate(userId);
 
   const job = await Job.findOne({
@@ -773,24 +691,18 @@ export async function applyForJob(
 
   if (!job) return null;
 
-  /*
-   * External jobs belong to another job platform.
-   * We must NOT create a local Application.
-   */
+  // External jobs belong to another job platform.
+  // Do not create a local Application for them.
   if (job.source === 'external') {
     if (!job.externalApplyUrl) {
       const error = new Error(
         'This external job does not have an application link.',
       );
-
       error.statusCode = 409;
       throw error;
     }
 
-    const match = calculateMatch(
-      candidate,
-      job,
-    );
+    const match = calculateMatch(candidate, job);
 
     return {
       external: true,
@@ -800,13 +712,8 @@ export async function applyForJob(
     };
   }
 
-  /*
-   * Platform jobs use the normal local application workflow.
-   */
-  const match = calculateMatch(
-    candidate,
-    job,
-  );
+  // Platform jobs use the normal local application workflow.
+  const match = calculateMatch(candidate, job);
 
   try {
     const application = await Application.create({
@@ -822,34 +729,26 @@ export async function applyForJob(
       ],
     });
 
-    await createAndEmitNotification(
-      job.employer,
-      {
-        type: 'new-application',
-        title: 'New job application',
-        message:
-          `A candidate applied for ${job.title}.`,
-        resource: {
-          type: 'application',
-          id: application._id,
-        },
+    await createAndEmitNotification(job.employer, {
+      type: 'new-application',
+      title: 'New job application',
+      message: `A candidate applied for ${job.title}.`,
+      resource: {
+        type: 'application',
+        id: application._id,
       },
-    );
+    });
 
-    emitToUser(
-      job.employer,
-      SOCKET_EVENTS.NEW_APPLICATION,
-      {
-        eventId: randomUUID(),
-        applicationId: application.id,
-        candidateId: String(candidate._id),
-        jobId: String(job._id),
-        jobTitle: job.title,
-        status: application.status,
-        matchScore: application.matchScore,
-        createdAt: application.createdAt,
-      },
-    );
+    emitToUser(job.employer, SOCKET_EVENTS.NEW_APPLICATION, {
+      eventId: randomUUID(),
+      applicationId: application.id,
+      candidateId: String(candidate._id),
+      jobId: String(job._id),
+      jobTitle: job.title,
+      status: application.status,
+      matchScore: application.matchScore,
+      createdAt: application.createdAt,
+    });
 
     return {
       external: false,
@@ -862,7 +761,6 @@ export async function applyForJob(
       const conflict = new Error(
         'You have already applied to this job.',
       );
-
       conflict.statusCode = 409;
       throw conflict;
     }
