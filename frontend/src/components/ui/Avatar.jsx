@@ -1,3 +1,6 @@
+
+import { useState } from 'react';
+
 const sizes = {
   sm: 'h-8 w-8 text-xs',
   md: 'h-10 w-10 text-sm',
@@ -18,112 +21,76 @@ function initials(name = '') {
 }
 
 export default function Avatar({
-  name,
+  name = '',
   src,
   size = 'md',
   className = '',
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
   const sizeClass = sizes[size] || sizes.md;
+  const showImage =
+    typeof src === 'string' &&
+    src.trim().length > 0 &&
+    !imageFailed;
 
-  if (src) {
-    return (
-      <div
-        className={`
-          relative
-          shrink-0
-          rounded-full
-          border
-          border-white/20
-          bg-white/10
-          p-0.5
-          shadow-[0_8px_25px_rgba(0,0,0,0.2)]
-          ${sizeClass}
-          ${className}
-        `}
-      >
-        <img
-          src={src}
-          alt={name ? `${name} avatar` : 'Avatar'}
-          className="
-            h-full
-            w-full
-            rounded-full
-            object-cover
-          "
-        />
-
-        <span
-          aria-hidden="true"
-          className="
-            pointer-events-none
-            absolute
-            inset-0
-            rounded-full
-            ring-1
-            ring-inset
-            ring-white/20
-          "
-        />
-      </div>
-    );
-  }
+  const containerClass = `
+    relative
+    inline-grid
+    shrink-0
+    place-items-center
+    overflow-hidden
+    rounded-full
+    border
+    border-white/20
+    bg-gradient-to-br
+    from-white/[0.16]
+    via-cyan-400/[0.10]
+    to-blue-500/[0.08]
+    font-semibold
+    text-cyan-100
+    shadow-[0_8px_25px_rgba(0,0,0,0.2)]
+    ${sizeClass}
+    ${className}
+  `;
 
   return (
     <span
-      aria-label={name || 'Avatar'}
+      aria-label={name ? `${name} avatar` : 'Avatar'}
       role="img"
-      className={`
-        relative
-        inline-grid
-        shrink-0
-        place-items-center
-        overflow-hidden
-        rounded-full
-        border
-        border-white/20
-        bg-gradient-to-br
-        from-white/[0.16]
-        via-cyan-400/[0.10]
-        to-blue-500/[0.08]
-        font-semibold
-        text-cyan-100
-        shadow-[0_8px_25px_rgba(0,0,0,0.2)]
-        backdrop-blur-xl
-        ${sizeClass}
-        ${className}
-      `}
+      className={containerClass}
     >
-      {/* Soft glass highlight */}
+      {showImage && (
+        <img
+          src={src}
+          alt=""
+          onError={() => setImageFailed(true)}
+          className="
+            absolute
+            inset-0
+            h-full
+            w-full
+            rounded-[inherit]
+            object-cover
+          "
+        />
+      )}
+
+      {!showImage && (
+        <span aria-hidden="true" className="relative z-10">
+          {initials(name)}
+        </span>
+      )}
+
       <span
         aria-hidden="true"
         className="
           pointer-events-none
           absolute
           inset-0
-          rounded-full
-          bg-gradient-to-br
-          from-white/15
-          via-transparent
-          to-transparent
-        "
-      />
-
-      {/* Initials */}
-      <span className="relative z-10">
-        {initials(name)}
-      </span>
-
-      {/* Inner border */}
-      <span
-        aria-hidden="true"
-        className="
-          pointer-events-none
-          absolute
-          inset-0
-          rounded-full
+          rounded-[inherit]
           ring-1
           ring-inset
-          ring-white/10
+          ring-white/20
         "
       />
     </span>

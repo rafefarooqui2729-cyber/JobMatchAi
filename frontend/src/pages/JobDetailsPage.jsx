@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import apiClient from '../api/client.js';
@@ -33,21 +34,16 @@ function salaryLabel(salary) {
   );
 
   const range =
-    salary.minimum != null
-    && salary.maximum != null
+    salary.minimum != null && salary.maximum != null
       ? `${format(salary.minimum)}–${format(salary.maximum)}`
       : salary.minimum != null
         ? `From ${format(salary.minimum)}`
         : `Up to ${format(salary.maximum)}`;
 
   return `${
-    salary.currency
-      ? `${salary.currency} `
-      : ''
+    salary.currency ? `${salary.currency} ` : ''
   }${range}${
-    salary.period
-      ? ` / ${salary.period}`
-      : ''
+    salary.period ? ` / ${salary.period}` : ''
   }`;
 }
 
@@ -61,18 +57,16 @@ function placeLabel(location = {}) {
     .join(', ');
 
   const mode =
-    location.remoteType
-    && location.remoteType !== 'onsite'
+    location.remoteType && location.remoteType !== 'onsite'
       ? ` · ${location.remoteType}`
       : '';
 
   return `${
-    place
-      || (
-        location.remoteType === 'remote'
-          ? 'Remote'
-          : 'Location not specified'
-      )
+    place || (
+      location.remoteType === 'remote'
+        ? 'Remote'
+        : 'Location not specified'
+    )
   }${mode}`;
 }
 
@@ -113,9 +107,7 @@ function InfoItem({ icon, label, value, accent = false }) {
 
         <p
           className={`mt-0.5 truncate text-sm font-medium ${
-            accent
-              ? 'text-cyan-100'
-              : 'text-slate-300'
+            accent ? 'text-cyan-100' : 'text-slate-300'
           }`}
         >
           {value}
@@ -133,16 +125,30 @@ export default function JobDetailsPage() {
   const [error, setError] = useState('');
 
   const loadJob = useCallback(async () => {
+    if (!jobId) {
+      setJob(null);
+      setError('A valid job ID was not provided.');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
       const { data } = await apiClient.get(
-        `/jobs/${jobId}`,
+        `/jobs/${encodeURIComponent(jobId)}`,
       );
+
+      if (!data?.job) {
+        setJob(null);
+        setError('Job details were not found.');
+        return;
+      }
 
       setJob(data.job);
     } catch (requestError) {
+      setJob(null);
       setError(
         requestError.response?.data?.error?.message
           || 'This job could not be loaded.',
@@ -157,14 +163,19 @@ export default function JobDetailsPage() {
   }, [loadJob]);
 
   const isExternal = Boolean(
-    job?.isExternal
-    || job?.source === 'external',
+    job?.isExternal || job?.source === 'external',
   );
 
   const companyName =
     job?.company?.name
     || job?.companyName
     || 'Company';
+
+  // Support both logo fields used by the job data.
+  const companyLogo =
+    job?.company?.logoUrl
+    || job?.companyLogo
+    || '';
 
   const providerName = job?.provider
     ? job.provider.charAt(0).toUpperCase()
@@ -173,7 +184,6 @@ export default function JobDetailsPage() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-canvas">
-      {/* Ambient background glow */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed left-[8%] top-24 -z-0 h-72 w-72 rounded-full bg-cyan-500/[0.07] blur-3xl"
@@ -223,16 +233,13 @@ export default function JobDetailsPage() {
           />
         ) : job ? (
           <div className="space-y-5">
-
             {/* Job Header */}
             <Card className="relative overflow-hidden p-5 sm:p-8">
-              {/* Top glass highlight */}
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent"
               />
 
-              {/* Header glow */}
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-cyan-400/[0.08] blur-3xl"
@@ -241,7 +248,7 @@ export default function JobDetailsPage() {
               <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start">
                 <Avatar
                   name={companyName}
-                  src={job.company?.logoUrl}
+                  src={companyLogo}
                   size="xl"
                   className="rounded-2xl border border-white/10 shadow-xl shadow-black/20"
                 />
@@ -277,7 +284,6 @@ export default function JobDetailsPage() {
                     )}
                   </div>
 
-                  {/* Job information */}
                   <div className="mt-5 grid gap-3 sm:grid-cols-3">
                     <InfoItem
                       icon="⌖"
@@ -306,9 +312,7 @@ export default function JobDetailsPage() {
                   {job.publishedAt && (
                     <p className="mt-4 text-xs text-slate-500">
                       Posted{' '}
-                      {new Date(
-                        job.publishedAt,
-                      ).toLocaleDateString()}
+                      {new Date(job.publishedAt).toLocaleDateString()}
                     </p>
                   )}
                 </div>
@@ -338,22 +342,18 @@ export default function JobDetailsPage() {
                       <span className="font-medium text-cyan-100">
                         {providerName}
                       </span>
-                      . Applications are completed on the
-                      original job platform.
+                      . Applications are completed on the original job platform.
                     </p>
 
                     {job.externalApplyUrl && (
                       <a
                         href={job.externalApplyUrl}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="mt-4 inline-flex min-h-10 items-center rounded-xl border border-cyan-300/20 bg-gradient-to-r from-cyan-400/15 to-blue-500/15 px-4 text-sm font-semibold text-cyan-100 shadow-lg shadow-cyan-950/10 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-300/35 hover:from-cyan-400/20 hover:to-blue-500/20 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-400/20"
                       >
                         Apply on {providerName}
-                        <span
-                          className="ml-1.5"
-                          aria-hidden="true"
-                        >
+                        <span className="ml-1.5" aria-hidden="true">
                           ↗
                         </span>
                       </a>
@@ -371,8 +371,6 @@ export default function JobDetailsPage() {
               />
 
               <div className="relative space-y-8">
-
-                {/* Skills */}
                 <SkillSection
                   title="Required skills"
                   skills={job.requiredSkills}
@@ -383,7 +381,6 @@ export default function JobDetailsPage() {
                   skills={job.preferredSkills}
                 />
 
-                {/* About Role */}
                 <section>
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
                     About the role
@@ -391,12 +388,11 @@ export default function JobDetailsPage() {
 
                   <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4 backdrop-blur-md sm:p-5">
                     <p className="whitespace-pre-line text-sm leading-7 text-slate-300">
-                      {job.description}
+                      {job.description || 'No job description is available.'}
                     </p>
                   </div>
                 </section>
 
-                {/* Responsibilities */}
                 {job.responsibilities?.length > 0 && (
                   <section>
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
@@ -405,27 +401,23 @@ export default function JobDetailsPage() {
 
                     <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.025] p-4 backdrop-blur-md sm:p-5">
                       <ul className="space-y-3 text-sm leading-6 text-slate-300">
-                        {job.responsibilities.map(
-                          (item, index) => (
-                            <li
-                              key={`${index}-${item}`}
-                              className="flex gap-3"
-                            >
-                              <span
-                                aria-hidden="true"
-                                className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.5)]"
-                              />
-
-                              <span>{item}</span>
-                            </li>
-                          ),
-                        )}
+                        {job.responsibilities.map((item, index) => (
+                          <li
+                            key={`${index}-${item}`}
+                            className="flex gap-3"
+                          >
+                            <span
+                              aria-hidden="true"
+                              className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300 shadow-[0_0_10px_rgba(103,232,249,0.5)]"
+                            />
+                            <span>{item}</span>
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   </section>
                 )}
 
-                {/* Education */}
                 {job.educationRequirements?.length > 0 && (
                   <section>
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
@@ -433,38 +425,32 @@ export default function JobDetailsPage() {
                     </h2>
 
                     <div className="mt-3 space-y-2">
-                      {job.educationRequirements.map(
-                        (item, index) => (
-                          <div
-                            key={`${index}-${item.minimumLevel}`}
-                            className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3 backdrop-blur-md"
-                          >
-                            <p className="text-sm font-medium capitalize text-slate-200">
-                              {item.minimumLevel?.replace(
-                                '-',
-                                ' ',
-                              )}
+                      {job.educationRequirements.map((item, index) => (
+                        <div
+                          key={`${index}-${item.minimumLevel}`}
+                          className="rounded-xl border border-white/10 bg-white/[0.025] px-4 py-3 backdrop-blur-md"
+                        >
+                          <p className="text-sm font-medium capitalize text-slate-200">
+                            {item.minimumLevel?.replace('-', ' ')}
 
-                              {item.isRequired && (
-                                <span className="ml-2 text-xs font-medium text-cyan-300">
-                                  Required
-                                </span>
-                              )}
-                            </p>
-
-                            {item.fieldsOfStudy?.length > 0 && (
-                              <p className="mt-1 text-xs text-slate-500">
-                                {item.fieldsOfStudy.join(', ')}
-                              </p>
+                            {item.isRequired && (
+                              <span className="ml-2 text-xs font-medium text-cyan-300">
+                                Required
+                              </span>
                             )}
-                          </div>
-                        ),
-                      )}
+                          </p>
+
+                          {item.fieldsOfStudy?.length > 0 && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              {item.fieldsOfStudy.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </section>
                 )}
 
-                {/* Company */}
                 {job.company?.description && (
                   <section>
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-200">
@@ -480,14 +466,11 @@ export default function JobDetailsPage() {
                         <a
                           href={job.company.website}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className="mt-4 inline-flex items-center rounded-lg px-2 py-1 text-sm font-semibold text-cyan-300 underline decoration-cyan-400/40 underline-offset-4 transition hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
                         >
                           Visit company website
-                          <span
-                            className="ml-1"
-                            aria-hidden="true"
-                          >
+                          <span className="ml-1" aria-hidden="true">
                             ↗
                           </span>
                         </a>
@@ -496,7 +479,6 @@ export default function JobDetailsPage() {
                   </section>
                 )}
 
-                {/* Deadline */}
                 {job.applicationDeadline && (
                   <div className="border-t border-white/10 pt-5">
                     <div className="flex items-center gap-3">
