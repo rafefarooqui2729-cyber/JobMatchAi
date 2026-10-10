@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const sizes = {
   sm: 'h-8 w-8 text-xs',
@@ -28,54 +28,40 @@ export default function Avatar({
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const sizeClass = sizes[size] || sizes.md;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [src]);
+
   const showImage =
     typeof src === 'string' &&
     src.trim().length > 0 &&
     !imageFailed;
 
-  const containerClass = `
-    relative
-    inline-grid
-    shrink-0
-    place-items-center
-    overflow-hidden
-    rounded-full
-    border
-    border-white/20
-    bg-gradient-to-br
-    from-white/[0.16]
-    via-cyan-400/[0.10]
-    to-blue-500/[0.08]
-    font-semibold
-    text-cyan-100
-    shadow-[0_8px_25px_rgba(0,0,0,0.2)]
-    ${sizeClass}
-    ${className}
-  `;
-
   return (
     <span
       aria-label={name ? `${name} avatar` : 'Avatar'}
       role="img"
-      className={containerClass}
+      className={`
+        relative inline-grid shrink-0 place-items-center
+        overflow-hidden rounded-2xl border border-white/15
+        bg-slate-900 font-semibold text-cyan-100
+        shadow-[0_8px_25px_rgba(0,0,0,0.2)]
+        ${sizeClass}
+        ${className}
+      `}
     >
-      {showImage && (
+      {showImage ? (
         <img
           src={src}
           alt=""
           onError={() => setImageFailed(true)}
           className="
-            absolute
-            inset-0
-            h-full
-            w-full
-            rounded-[inherit]
-            object-cover
+            absolute inset-0 h-full w-full
+            rounded-[inherit] object-contain p-1.5
           "
         />
-      )}
-
-      {!showImage && (
+      ) : (
         <span aria-hidden="true" className="relative z-10">
           {initials(name)}
         </span>
@@ -84,13 +70,8 @@ export default function Avatar({
       <span
         aria-hidden="true"
         className="
-          pointer-events-none
-          absolute
-          inset-0
-          rounded-[inherit]
-          ring-1
-          ring-inset
-          ring-white/20
+          pointer-events-none absolute inset-0
+          rounded-[inherit] ring-1 ring-inset ring-white/15
         "
       />
     </span>
