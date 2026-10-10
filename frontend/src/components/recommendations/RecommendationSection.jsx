@@ -96,6 +96,11 @@ function RecommendationCard({
     || job.companyName
     || 'Company';
 
+  const companyLogo =
+    job.company?.logoUrl
+    || job.companyLogo
+    || '';
+
   const providerName = job.provider
     ? job.provider.charAt(0).toUpperCase()
       + job.provider.slice(1)
@@ -146,9 +151,9 @@ function RecommendationCard({
             <div className="relative shrink-0">
               <Avatar
                 name={companyName}
-                src={job.company?.logoUrl}
+                src={companyLogo}
                 size="lg"
-                className="rounded-xl border border-white/20 bg-white/[0.10] shadow-lg shadow-black/20"
+                className="rounded-xl border border-white/20 bg-slate-900 shadow-lg shadow-black/20"
               />
 
               <span
@@ -274,6 +279,7 @@ function RecommendationCard({
               className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/15 bg-white/[0.035] px-3.5 text-sm font-semibold text-slate-200 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-cyan-400/[0.06] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-400/15"
             >
               View match details
+
               <span
                 aria-hidden="true"
                 className="ml-1.5 text-cyan-300"
@@ -565,6 +571,7 @@ export default function RecommendationSection() {
           className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-4 text-sm font-semibold text-slate-200 backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-white/[0.07] hover:text-cyan-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-400/15"
         >
           Explore all jobs
+
           <span
             aria-hidden="true"
             className="ml-1.5 text-cyan-300"
