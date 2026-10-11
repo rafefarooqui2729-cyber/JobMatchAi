@@ -88,6 +88,15 @@ const env = {
 
   externalJobApiKey:
     process.env.EXTERNAL_JOB_API_KEY || '',
+
+  cloudinaryCloudName:
+    process.env.CLOUDINARY_CLOUD_NAME || '',
+
+  cloudinaryApiKey:
+    process.env.CLOUDINARY_API_KEY || '',
+
+  cloudinaryApiSecret:
+    process.env.CLOUDINARY_API_SECRET || '',
 };
 
 export default env;

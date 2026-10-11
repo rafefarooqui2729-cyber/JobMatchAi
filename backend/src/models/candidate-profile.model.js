@@ -108,6 +108,18 @@ const candidateProfileSchema = new Schema(
     },
     firstName: { type: String, required: true, trim: true, maxlength: 80 },
     lastName: { type: String, required: true, trim: true, maxlength: 80 },
+        profilePhotoUrl: {
+      type: String,
+      trim: true,
+      maxlength: 2048,
+      default: null,
+    },
+    profilePhotoPublicId: {
+      type: String,
+      trim: true,
+      maxlength: 255,
+      default: null,
+    },
     phone: { type: String, trim: true, maxlength: 32 },
     location: { type: personalLocationSchema, default: () => ({}) },
     headline: { type: String, trim: true, maxlength: 180 },
