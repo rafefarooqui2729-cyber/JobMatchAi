@@ -8,14 +8,13 @@ const sizes = {
   xl: 'h-20 w-20 text-xl',
 };
 
-function initials(name = '') {
+function getInitials(name = '') {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+
   return (
-    name
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean)
+    parts
       .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
+      .map((part) => part.charAt(0).toUpperCase())
       .join('') || '?'
   );
 }
@@ -27,6 +26,7 @@ export default function Avatar({
   className = '',
 }) {
   const [imageFailed, setImageFailed] = useState(false);
+
   const sizeClass = sizes[size] || sizes.md;
 
   useEffect(() => {
@@ -40,39 +40,33 @@ export default function Avatar({
 
   return (
     <span
-      aria-label={name ? `${name} avatar` : 'Avatar'}
       role="img"
-      className={`
-        relative inline-grid shrink-0 place-items-center
-        overflow-hidden rounded-2xl border border-white/15
-        bg-slate-900 font-semibold text-cyan-100
-        shadow-[0_8px_25px_rgba(0,0,0,0.2)]
-        ${sizeClass}
-        ${className}
-      `}
+      aria-label={name ? `${name} avatar` : 'Avatar'}
+      className={[
+        'relative inline-grid shrink-0 place-items-center',
+        'overflow-hidden rounded-2xl border border-white/15',
+        'bg-slate-900 font-semibold text-cyan-100',
+        'shadow-[0_8px_25px_rgba(0,0,0,0.2)]',
+        sizeClass,
+        className,
+      ].join(' ')}
     >
       {showImage ? (
         <img
           src={src}
           alt=""
           onError={() => setImageFailed(true)}
-          className="
-            absolute inset-0 h-full w-full
-            rounded-[inherit] object-contain p-1.5
-          "
+          className="absolute inset-0 h-full w-full rounded-[inherit] object-cover"
         />
       ) : (
         <span aria-hidden="true" className="relative z-10">
-          {initials(name)}
+          {getInitials(name)}
         </span>
       )}
 
       <span
         aria-hidden="true"
-        className="
-          pointer-events-none absolute inset-0
-          rounded-[inherit] ring-1 ring-inset ring-white/15
-        "
+        className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-white/15"
       />
     </span>
   );

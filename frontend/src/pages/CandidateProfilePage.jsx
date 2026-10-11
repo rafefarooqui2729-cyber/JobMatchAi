@@ -418,15 +418,23 @@ export default function CandidateProfilePage() {
   const [resumeStage, setResumeStage] = useState('');
   const [resumeReview, setResumeReview] = useState(null);
 
-  const resumeInput = useRef(null);
+const resumeInput = useRef(null);
+const photoInput = useRef(null);
 
-  const fullName = useMemo(
-    () =>
-      profile
-        ? `${profile.firstName} ${profile.lastName}`.trim()
-        : '',
-    [profile],
-  );
+const [photoUploading, setPhotoUploading] = useState(false);
+const [photoError, setPhotoError] = useState('');
+
+const fullName = useMemo(
+  () =>
+    [user?.firstName, user?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim() ||
+    user?.name ||
+    user?.email ||
+    'Candidate',
+  [user],
+);
 
   /* =========================================================
      LOAD PROFILE
@@ -565,7 +573,53 @@ export default function CandidateProfilePage() {
       setSaving(false);
     }
   }
+    /* =========================================================
+     PROFILE PHOTO UPLOAD
+  ========================================================= */
 
+  async function uploadProfilePhotoHandler(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setPhotoError('Choose a JPG, PNG, or WebP image.');
+      return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      setPhotoError('The photo must be no larger than 3 MB.');
+      return;
+    }
+
+    const payload = new FormData();
+    payload.append('profilePhoto', file);
+
+    setPhotoError('');
+    setPhotoUploading(true);
+
+    try {
+      const { data } = await apiClient.post(
+        '/candidate/profile/photo',
+        payload,
+      );
+
+      setProfile(data.profile);
+      setForm(editableProfile(data.profile));
+
+      toast('Profile photo updated successfully.', {
+        tone: 'success',
+      });
+    } catch (error) {
+      setPhotoError(
+        error.response?.data?.error?.message ||
+          'The profile photo could not be uploaded.',
+      );
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
   /* =========================================================
      RESUME UPLOAD
   ========================================================= */
@@ -751,7 +805,15 @@ export default function CandidateProfilePage() {
         aria-hidden="true"
         className="pointer-events-none fixed bottom-[-12rem] left-[35%] z-0 h-96 w-96 rounded-full bg-cyan-300/[0.035] blur-[120px]"
       />
-
+        <input
+        ref={photoInput}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={uploadProfilePhotoHandler}
+        disabled={photoUploading || editing}
+        className="sr-only"
+        aria-label="Choose a profile photo"
+      />
       <Navbar
         brandHref="/candidate/dashboard"
         mobileMenuItems={[
@@ -817,9 +879,10 @@ export default function CandidateProfilePage() {
             </Link>
 
             <Avatar
-              name={fullName}
-              size="sm"
-            />
+  name={fullName}
+  src={profile.profilePhotoUrl}
+  size="sm"
+/>
           </>
         }
       />
@@ -857,6 +920,7 @@ export default function CandidateProfilePage() {
             )
           }
         />
+        
 
         {/* =====================================================
             RESUME
@@ -1018,15 +1082,15 @@ export default function CandidateProfilePage() {
 
                   <p className="mt-1 text-xs leading-5 text-slate-400">
                     We detected{' '}
-                    {resumeReview.skills.length}{' '}
+                    {(resumeReview.skills ?? []).length}{' '}
                     skills,{' '}
-                    {resumeReview.education.length}{' '}
+                    {(resumeReview.education ?? []).length}{' '}
                     education records,{' '}
-                    {resumeReview.experience.length}{' '}
+                    {(resumeReview.experience ?? []).length}{' '}
                     experience records,{' '}
-                    {resumeReview.projects.length}{' '}
+                    {(resumeReview.projects ?? []).length}{' '}
                     projects, and{' '}
-                    {resumeReview.certifications.length}{' '}
+                    {(resumeReview.certifications ?? []).length}{' '}
                     certifications. Unclear fields were
                     left unchanged.
                   </p>
@@ -1050,7 +1114,7 @@ export default function CandidateProfilePage() {
                   'phone',
                 ].map((field) => {
                   const detected =
-                    resumeReview.fields[field];
+                  resumeReview.fields?.[field] ?? {};
 
                   return (
                     <InnerGlass
@@ -1087,88 +1151,85 @@ export default function CandidateProfilePage() {
             PROFILE COMPLETION
         ===================================================== */}
 
-        <section
-          aria-label="Profile completion"
-          className="my-6"
+<section
+  aria-label="Profile completion"
+  className="my-6"
+>
+  <GlassSection
+    className="p-5 sm:p-6"
+    glow="blue"
+  >
+    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
+      {/* Profile photo */}
+      <div className="flex min-w-0 flex-1 items-center gap-4">
+        <div className="relative shrink-0">
+          <span
+            aria-hidden="true"
+            className="absolute -inset-3 rounded-full bg-cyan-400/10 blur-2xl"
+          />
+
+          <div className="relative rounded-full border border-white/10 bg-white/[0.05] p-1.5 backdrop-blur-xl">
+            <Avatar
+              name={fullName}
+              src={profile.profilePhotoUrl}
+              size="lg"
+            />
+          </div>
+        </div>
+
+        {/* Candidate name */}
+        <div className="min-w-0">
+          <h2 className="truncate text-xl font-semibold text-white">
+            {fullName}
+          </h2>
+
+          <p className="truncate text-sm text-slate-400">
+            {profile.headline || user?.email || 'Add a professional headline'}
+          </p>
+
+          {(profile.completion?.suggestions ?? []).length > 0 && (
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              Next: {profile.completion.suggestions[0]}.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Upload or change photo */}
+      <div className="flex shrink-0 flex-col items-start gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={photoUploading || editing}
+          loading={photoUploading}
+          onClick={() => photoInput.current?.click()}
         >
-          <GlassSection
-            className="p-5 sm:p-6"
-            glow="blue"
+          {photoUploading
+            ? 'Uploading...'
+            : profile.profilePhotoUrl
+              ? 'Change photo'
+              : 'Upload photo'}
+        </Button>
+
+        {photoError && (
+          <p
+            role="alert"
+            className="max-w-48 text-xs leading-5 text-rose-300"
           >
-            <div className="relative z-10 flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-8">
-              <div className="flex items-center gap-4 sm:w-60">
-                <div className="relative shrink-0">
-                  <span
-                    aria-hidden="true"
-                    className="absolute -inset-3 rounded-full bg-cyan-400/10 blur-2xl"
-                  />
+            {photoError}
+          </p>
+        )}
 
-                  <div className="relative rounded-full border border-white/10 bg-white/[0.05] p-1.5 backdrop-blur-xl">
-                    <Avatar
-                      name={fullName}
-                      size="lg"
-                    />
-                  </div>
-                </div>
-
-                <div className="min-w-0">
-                  <h2 className="truncate text-base font-semibold text-white">
-                    {fullName}
-                  </h2>
-
-                  <p className="truncate text-sm text-slate-400">
-                    {profile.headline ||
-                      user.email}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex-1">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-white">
-                      Profile Strength
-                    </p>
-
-                    <p className="text-xs text-slate-500">
-                      {profile.completion
-                        .strength ||
-                        'Getting started'}
-                    </p>
-                  </div>
-
-                  <span className="rounded-lg border border-cyan-300/15 bg-cyan-300/[0.05] px-2.5 py-1 text-sm font-semibold text-cyan-300">
-                    {profile.completion
-                      .percentage}
-                    %
-                  </span>
-                </div>
-
-                <ProgressBar
-                  value={
-                    profile.completion
-                      .percentage
-                  }
-                  label="Profile completion"
-                  showValue={false}
-                />
-
-                {profile.completion
-                  .suggestions?.length >
-                  0 && (
-                  <p className="mt-2 text-xs text-slate-500">
-                    Next:{' '}
-                    {
-                      profile.completion
-                        .suggestions[0]
-                    }
-                    .
-                  </p>
-                )}
-              </div>
-            </div>
-          </GlassSection>
-        </section>
+        {editing && (
+          <p className="text-xs text-slate-500">
+            Save or cancel your edits before changing your photo.
+          </p>
+        )}
+      </div>
+    </div>
+  </GlassSection>
+</section>
 
         {/* =====================================================
             EDIT MODE
